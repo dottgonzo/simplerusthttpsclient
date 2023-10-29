@@ -11,12 +11,12 @@ pub struct TlsConfig<'a> {
     pub private_chain_bytes: Option<&'a [u8]>,
 }
 
-pub struct HttpServer {
+pub struct HttpClient {
     base_url: Url,
     client: Client,
 }
 
-impl HttpServer {
+impl HttpClient {
     pub fn new(
         base_url: Url,
         tls_config: Option<TlsConfig<'static>>,
