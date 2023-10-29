@@ -18,7 +18,7 @@ mod tests {
 
         let response: anyhow::Result<OkJson> = client.get("/", None).await;
 
-        println!("response: {:?}", response);
+        assert!(response.is_ok());
     }
     #[tokio::test]
     async fn test_https_insecure() {
@@ -33,7 +33,7 @@ mod tests {
 
         let response: anyhow::Result<OkJson> = client.get("/", None).await;
 
-        println!("response: {:?}", response);
+        assert!(response.is_ok());
     }
     #[tokio::test]
     async fn test_https_private_tls() {
@@ -50,6 +50,6 @@ mod tests {
 
         let response: anyhow::Result<OkJson> = client.get("/", None).await;
 
-        println!("response: {:?}", response);
+        assert!(response.is_ok());
     }
 }
