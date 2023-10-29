@@ -2,6 +2,7 @@
 mod tests;
 
 use reqwest::{header::HeaderMap, Client};
+use rustls::RootCertStore;
 use url::Url;
 
 #[derive(Clone)]
@@ -29,12 +30,25 @@ impl HttpServer {
 
                 if tls_config_content.insecure.is_some() {
                     builder = builder.danger_accept_invalid_certs(true);
-                    // } else if tls_config_content.private_chain_bytes.is_some() {
-                    //     let cert =
-                    //         tls::Certificate::from_pem(tls_config_content.private_chain_bytes.unwrap())
-                    //             .unwrap();
+                } else if tls_config_content.private_chain_bytes.is_some() {
+                    let cert = BufReader::new(File::open(cert_path)?);
+                    let cert_chain = rustls::internal::pemfile::certs(&cert).map_err(|_| {
+                        Error::new(
+                            reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                            "Impossibile leggere il certificato self-signed",
+                        )
+                    })?;
 
-                    //     builder = builder.add_root_certificate(cert);
+                    // Crea un nuovo config Client di Rustls.
+                    let mut config = ClientConfig::new();
+                    config.root_store.add(&cert_chain[0]).map_err(|_| {
+                        Error::new(
+                            reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                            "Impossibile aggiungere il certificato self-signed",
+                        )
+                    })?;
+
+                    builder = builder.use_rustls_tls_with_config(config);
                 }
             }
         }
