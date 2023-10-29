@@ -2,8 +2,13 @@
 mod tests;
 use anyhow::Ok;
 use reqwest::{header::HeaderMap, multipart, Client};
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use url::Url;
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct OkJson {
+    pub ok: bool,
+}
 
 #[derive(Clone)]
 pub struct TlsConfig<'a> {
