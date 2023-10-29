@@ -7,8 +7,6 @@ struct OkJson {
 
 #[cfg(test)]
 mod tests {
-    use std::any;
-
     use url::Url;
 
     use crate::tests::main_test::OkJson;
