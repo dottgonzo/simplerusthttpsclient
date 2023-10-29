@@ -1,9 +1,15 @@
 [package]
-name = "simplehttps"
+name = "simplerusthttpsclient"
 version = "0.0.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = ["Dario Caruso"]
+description = "simple rust client with rust native tls"
+license = "Apache-2.0"
+documentation = "https://docs.rs/simplerusthttpsclient"
+repository = "https://github.com/dottgonzo/simplerusthttpsclient"
+
+
 
 [dependencies]
 reqwest = { version = "0.11.22", default-features = false, features = ["rustls-tls","json","multipart"] }
