@@ -1,16 +1,20 @@
 [package]
 name = "simplehttps"
-version = "0.1.0"
+version = "0.0.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-reqwest = { version = "0.11.22", default-features = false, features = ["rustls-tls"] }
+reqwest = { version = "0.11.22", default-features = false, features = ["rustls-tls","json","multipart"] }
 url = "2.4.1"
 tokio = { version = "1.33.0", features = ["macros"] }
 rustls = { version = "0.21.8", features = [
     "dangerous_configuration",
     "secret_extraction",
 ] }
+rustls-pemfile = "1.0.3"
+anyhow = "1.0.75"
+serde = "1.0.190"
+tokio-util = "0.7.10"
 
