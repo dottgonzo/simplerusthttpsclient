@@ -1,15 +1,18 @@
 #[cfg(test)]
 mod tests;
-use std::{
-    fs::File,
-    path::{Path, PathBuf},
-};
+use std::{fs::File, path::Path};
 
-use anyhow::Ok;
 use reqwest::{header::HeaderMap, multipart, Client};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::io::{self, Read};
+use std::io::Read;
+use tokio::io::AsyncWriteExt;
 use url::Url;
+
+pub enum ArchiveType {
+    Zip,
+    Tar,
+    Gzip,
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct OkJson {
@@ -101,13 +104,13 @@ impl HttpClient {
         Ok(response)
     }
 
-    pub async fn post_file_path<T: DeserializeOwned>(
+    pub async fn post_file_path(
         &self,
         url: Url,
         path: &Path,
         multipart_file_name: Option<String>,
         extra_headers: Option<HeaderMap>,
-    ) -> anyhow::Result<T> {
+    ) -> anyhow::Result<()> {
         let file_name = path.file_name().unwrap().to_str().unwrap().to_string();
 
         let mut file = File::open(path)?;
@@ -127,14 +130,14 @@ impl HttpClient {
             .await
     }
 
-    pub async fn post_file_buffer<T: DeserializeOwned>(
+    pub async fn post_file_buffer(
         &self,
         url: Url,
         name: String,
         bytes: &'static [u8],
         mut multipart_file_name: Option<String>,
         extra_headers: Option<HeaderMap>,
-    ) -> anyhow::Result<T> {
+    ) -> anyhow::Result<()> {
         if multipart_file_name.is_none() {
             multipart_file_name = Some(String::from("file"));
         }
@@ -176,9 +179,9 @@ impl HttpClient {
         Ok(response)
     }
 
-    pub async fn get_file(
+    pub async fn get_file_buffer(
         &self,
-        url: &str,
+        url: Url,
         extra_headers: Option<HeaderMap>,
     ) -> anyhow::Result<tokio_util::bytes::Bytes> {
         // println!("GET {url}");
@@ -196,5 +199,114 @@ impl HttpClient {
         } else {
             Err(anyhow::anyhow!("Error downloading file"))
         }
+    }
+
+    pub async fn get_file_to_path(
+        &self,
+        url: Url,
+        path: &Path,
+        extra_headers: Option<HeaderMap>,
+    ) -> anyhow::Result<()> {
+        // println!("GET {url}");
+        let file_buffer = self.get_file_buffer(url, extra_headers).await?;
+        let mut file = tokio::fs::File::create(&path).await?;
+
+        file.write_all(&file_buffer).await?;
+
+        Ok(())
+    }
+
+    pub async fn get_archive_to_dir(
+        &self,
+        url: Url,
+        archive_type: &ArchiveType,
+        dir: &Path,
+        extra_headers: Option<HeaderMap>,
+    ) -> anyhow::Result<()> {
+        // println!("GET {url}");
+
+        let file_buffer = self.get_file_buffer(url, extra_headers).await?;
+
+        match archive_type {
+            ArchiveType::Zip => {
+                let mut archive = zip::ZipArchive::new(std::io::Cursor::new(file_buffer))?;
+
+                // Iterate over each file inside the ZIP
+                for i in 0..archive.len() {
+                    let mut file = archive.by_index(i)?;
+                    let outpath = Path::new(dir).join(file.mangled_name());
+
+                    if file.name().ends_with('/') {
+                        // Create a directory if it's a folder
+                        tokio::fs::create_dir_all(&outpath).await?;
+                    } else {
+                        // Ensure the parent folder exists
+                        if let Some(parent) = outpath.parent() {
+                            tokio::fs::create_dir_all(parent).await?;
+                        }
+
+                        // Extract the file and write to the output path
+                        let mut outfile = tokio::fs::File::create(&outpath).await?;
+                        let mut buffer = Vec::new();
+                        file.read_to_end(&mut buffer)?;
+                        outfile.write_all(&buffer).await?;
+                    }
+                }
+            }
+            ArchiveType::Tar => {
+                let mut archive = tar::Archive::new(std::io::Cursor::new(file_buffer));
+
+                // Iterate over each file inside the ZIP
+                for entry in archive.entries()? {
+                    let mut file = entry?;
+                    let outpath = Path::new(dir).join(file.path()?);
+
+                    if file.header().entry_type().is_dir() {
+                        // Create a directory if it's a folder
+                        tokio::fs::create_dir_all(&outpath).await?;
+                    } else {
+                        // Ensure the parent folder exists
+                        if let Some(parent) = outpath.parent() {
+                            tokio::fs::create_dir_all(parent).await?;
+                        }
+
+                        // Extract the file and write to the output path
+                        let mut outfile = tokio::fs::File::create(&outpath).await?;
+                        let mut buffer = Vec::new();
+                        file.read_to_end(&mut buffer)?;
+                        outfile.write_all(&buffer).await?;
+                    }
+                }
+            }
+            ArchiveType::Gzip => {
+                let mut archive = tar::Archive::new(flate2::read::GzDecoder::new(
+                    std::io::Cursor::new(file_buffer),
+                ));
+
+                // Iterate over each file inside the ZIP
+                for entry in archive.entries()? {
+                    let mut file = entry?;
+                    let outpath = Path::new(dir).join(file.path()?);
+
+                    if file.header().entry_type().is_dir() {
+                        // Create a directory if it's a folder
+                        tokio::fs::create_dir_all(&outpath).await?;
+                    } else {
+                        // Ensure the parent folder exists
+                        if let Some(parent) = outpath.parent() {
+                            tokio::fs::create_dir_all(parent).await?;
+                        }
+
+                        // Extract the file and write to the output path
+                        let mut outfile = tokio::fs::File::create(&outpath).await?;
+                        let mut buffer = Vec::new();
+                        file.read_to_end(&mut buffer)?;
+                        outfile.write_all(&buffer).await?;
+                    }
+                }
+            }
+        }
+
+        Ok(())
     }
 }
