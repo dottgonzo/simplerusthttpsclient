@@ -1,8 +1,14 @@
 #[cfg(test)]
 mod tests;
+use std::{
+    fs::File,
+    path::{Path, PathBuf},
+};
+
 use anyhow::Ok;
 use reqwest::{header::HeaderMap, multipart, Client};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use std::io::{self, Read};
 use url::Url;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -95,7 +101,33 @@ impl HttpClient {
         Ok(response)
     }
 
-    pub async fn post_file_buffer<T: DeserializeOwned, U: Serialize>(
+    pub async fn post_file_path<T: DeserializeOwned>(
+        &self,
+        url: Url,
+        path: &Path,
+        multipart_file_name: Option<String>,
+        extra_headers: Option<HeaderMap>,
+    ) -> anyhow::Result<T> {
+        let file_name = path.file_name().unwrap().to_str().unwrap().to_string();
+
+        let mut file = File::open(path)?;
+
+        // Create a buffer to store the file's contents
+        let mut buffer = Vec::new();
+
+        // Read the file's contents into the buffer
+        file.read_to_end(&mut buffer)?;
+        let multipart = multipart_file_name;
+        let headers = extra_headers;
+        let url_address = url;
+
+        let static_buffer: &'static [u8] = Box::leak(buffer.into_boxed_slice());
+
+        self.post_file_buffer(url_address, file_name, static_buffer, multipart, headers)
+            .await
+    }
+
+    pub async fn post_file_buffer<T: DeserializeOwned>(
         &self,
         url: Url,
         name: String,
