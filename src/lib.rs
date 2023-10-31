@@ -27,6 +27,7 @@ pub struct TlsConfig<'a> {
     pub private_chain_bytes: Option<&'a [u8]>,
 }
 
+#[derive(Clone)]
 pub struct HttpClient {
     base_url: Url,
     client: Client,
@@ -225,94 +226,82 @@ impl HttpClient {
         dir: &Path,
         extra_headers: Option<HeaderMap>,
     ) -> anyhow::Result<()> {
-        // println!("GET {url}");
-
         let file_buffer = self.get_file_buffer(url, extra_headers).await?;
 
         match archive_type {
             ArchiveType::Zip => {
-                let mut archive = zip::ZipArchive::new(std::io::Cursor::new(file_buffer))?;
-
-                // Iterate over each file inside the ZIP
-                for i in 0..archive.len() {
-                    let mut file = archive.by_index(i)?;
-                    let outpath = Path::new(dir).join(file.mangled_name());
-
-                    if file.name().ends_with('/') {
-                        // Create a directory if it's a folder
-                        tokio::fs::create_dir_all(&outpath).await?;
-                    } else {
-                        // Ensure the parent folder exists
-                        if let Some(parent) = outpath.parent() {
-                            tokio::fs::create_dir_all(parent).await?;
-                        }
-
-                        // Extract the file and write to the output path
-                        let mut outfile = tokio::fs::File::create(&outpath).await?;
-                        let mut buffer = Vec::new();
-                        file.read_to_end(&mut buffer)?;
-                        outfile.write_all(&buffer).await?;
-                    }
-                }
-            }
-            ArchiveType::Tar => {
-                let buffer = file_buffer.clone(); // Clone the buffer so it can be moved into the closure
-
-                let original_dir = dir.to_owned(); // Clone the dir so it can be moved into the closure
-
+                let dir = dir.to_owned();
                 tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
-                    let mut archive = tar::Archive::new(std::io::Cursor::new(buffer));
+                    let mut archive = zip::ZipArchive::new(std::io::Cursor::new(file_buffer))?;
+                    for i in 0..archive.len() {
+                        let mut file = archive.by_index(i)?;
+                        let outpath = dir.join(file.mangled_name());
 
-                    for entry in archive.entries()? {
-                        let mut file = entry?;
-                        let outpath = original_dir.join(file.path()?); // Directly use the passed 'dir' parameter
-
-                        if file.header().entry_type().is_dir() {
+                        if file.name().ends_with('/') {
                             std::fs::create_dir_all(&outpath)?;
                         } else {
-                            // Ensure the parent folder exists
                             if let Some(parent) = outpath.parent() {
                                 std::fs::create_dir_all(parent)?;
                             }
-
-                            // Extract the file and write to the output path
                             let mut outfile = std::fs::File::create(&outpath)?;
                             let mut buffer = Vec::new();
                             file.read_to_end(&mut buffer)?;
                             outfile.write_all(&buffer)?;
                         }
                     }
-
-                    Ok(()) // Return Ok(()) from the closure
+                    Ok(())
                 })
-                .await??; // Double await and double question mark: first for the task, second for the Result
+                .await??;
+            }
+            ArchiveType::Tar => {
+                let dir = dir.to_owned();
+                tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
+                    let mut archive = tar::Archive::new(std::io::Cursor::new(file_buffer));
+                    for entry in archive.entries()? {
+                        let mut file = entry?;
+                        let outpath = dir.join(file.path()?);
+
+                        if file.header().entry_type().is_dir() {
+                            std::fs::create_dir_all(&outpath)?;
+                        } else {
+                            if let Some(parent) = outpath.parent() {
+                                std::fs::create_dir_all(parent)?;
+                            }
+                            let mut outfile = std::fs::File::create(&outpath)?;
+                            let mut buffer = Vec::new();
+                            file.read_to_end(&mut buffer)?;
+                            outfile.write_all(&buffer)?;
+                        }
+                    }
+                    Ok(())
+                })
+                .await??;
             }
             ArchiveType::Gzip => {
-                let mut archive = tar::Archive::new(flate2::read::GzDecoder::new(
-                    std::io::Cursor::new(file_buffer),
-                ));
+                let dir = dir.to_owned();
+                tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
+                    let mut archive = tar::Archive::new(flate2::read::GzDecoder::new(
+                        std::io::Cursor::new(file_buffer),
+                    ));
+                    for entry in archive.entries()? {
+                        let mut file = entry?;
+                        let outpath = dir.join(file.path()?);
 
-                // Iterate over each file inside the ZIP
-                for entry in archive.entries()? {
-                    let mut file = entry?;
-                    let outpath = Path::new(dir).join(file.path()?);
-
-                    if file.header().entry_type().is_dir() {
-                        // Create a directory if it's a folder
-                        tokio::fs::create_dir_all(&outpath).await?;
-                    } else {
-                        // Ensure the parent folder exists
-                        if let Some(parent) = outpath.parent() {
-                            tokio::fs::create_dir_all(parent).await?;
+                        if file.header().entry_type().is_dir() {
+                            std::fs::create_dir_all(&outpath)?;
+                        } else {
+                            if let Some(parent) = outpath.parent() {
+                                std::fs::create_dir_all(parent)?;
+                            }
+                            let mut outfile = std::fs::File::create(&outpath)?;
+                            let mut buffer = Vec::new();
+                            file.read_to_end(&mut buffer)?;
+                            outfile.write_all(&buffer)?;
                         }
-
-                        // Extract the file and write to the output path
-                        let mut outfile = tokio::fs::File::create(&outpath).await?;
-                        let mut buffer = Vec::new();
-                        file.read_to_end(&mut buffer)?;
-                        outfile.write_all(&buffer).await?;
                     }
-                }
+                    Ok(())
+                })
+                .await??;
             }
         }
 

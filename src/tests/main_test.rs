@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
+    use std::{path::Path, sync::Arc};
 
     use url::Url;
 
@@ -99,20 +99,22 @@ mod tests {
             None,
         );
 
-        let response = client
-            .get_archive_to_dir(
-                url::Url::parse(&url_get_string).unwrap(),
-                &crate::ArchiveType::Gzip,
-                storage_path,
-                None,
-            )
-            .await;
+        let cloned_client = client.clone();
+        tokio::spawn(async move {
+            let a = cloned_client
+                .get_archive_to_dir(
+                    url::Url::parse(&url_get_string).unwrap(),
+                    &crate::ArchiveType::Gzip,
+                    storage_path,
+                    None,
+                )
+                .await;
 
-        if response.is_err() {
-            println!("Error: {:?}", &response.err());
-        } else {
-            println!("Success");
-            assert!(response.is_ok());
+            assert!(a.is_ok());
+        });
+
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         }
     }
 }
