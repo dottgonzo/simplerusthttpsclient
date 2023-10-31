@@ -13,10 +13,18 @@ use url::Url;
 #[derive(Debug, Clone)]
 pub enum ArchiveType {
     Zip,
-    Tar,
     Gzip,
+    Tar,
 }
-
+impl ArchiveType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ArchiveType::Zip => "zip",
+            ArchiveType::Gzip => "gzip",
+            ArchiveType::Tar => "tar",
+        }
+    }
+}
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct OkJson {
     pub ok: bool,
