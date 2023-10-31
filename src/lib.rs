@@ -17,18 +17,18 @@ pub enum ArchiveType {
     Gzip,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct OkJson {
     pub ok: bool,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TlsConfig<'a> {
     pub insecure: Option<bool>,
     pub private_chain_bytes: Option<&'a [u8]>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct HttpClient {
     base_url: Url,
     client: Client,
