@@ -6,6 +6,7 @@ use std::{fs::File, path::Path};
 use reqwest::{header::HeaderMap, multipart, Client};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::io::Read;
+use std::io::Write;
 use tokio::io::AsyncWriteExt;
 use url::Url;
 
@@ -255,29 +256,36 @@ impl HttpClient {
                 }
             }
             ArchiveType::Tar => {
-                let mut archive = tar::Archive::new(std::io::Cursor::new(file_buffer));
+                let buffer = file_buffer.clone(); // Clone the buffer so it can be moved into the closure
 
-                // Iterate over each file inside the ZIP
-                for entry in archive.entries()? {
-                    let mut file = entry?;
-                    let outpath = Path::new(dir).join(file.path()?);
+                let original_dir = dir.to_owned(); // Clone the dir so it can be moved into the closure
 
-                    if file.header().entry_type().is_dir() {
-                        // Create a directory if it's a folder
-                        tokio::fs::create_dir_all(&outpath).await?;
-                    } else {
-                        // Ensure the parent folder exists
-                        if let Some(parent) = outpath.parent() {
-                            tokio::fs::create_dir_all(parent).await?;
+                tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
+                    let mut archive = tar::Archive::new(std::io::Cursor::new(buffer));
+
+                    for entry in archive.entries()? {
+                        let mut file = entry?;
+                        let outpath = original_dir.join(file.path()?); // Directly use the passed 'dir' parameter
+
+                        if file.header().entry_type().is_dir() {
+                            std::fs::create_dir_all(&outpath)?;
+                        } else {
+                            // Ensure the parent folder exists
+                            if let Some(parent) = outpath.parent() {
+                                std::fs::create_dir_all(parent)?;
+                            }
+
+                            // Extract the file and write to the output path
+                            let mut outfile = std::fs::File::create(&outpath)?;
+                            let mut buffer = Vec::new();
+                            file.read_to_end(&mut buffer)?;
+                            outfile.write_all(&buffer)?;
                         }
-
-                        // Extract the file and write to the output path
-                        let mut outfile = tokio::fs::File::create(&outpath).await?;
-                        let mut buffer = Vec::new();
-                        file.read_to_end(&mut buffer)?;
-                        outfile.write_all(&buffer).await?;
                     }
-                }
+
+                    Ok(()) // Return Ok(()) from the closure
+                })
+                .await??; // Double await and double question mark: first for the task, second for the Result
             }
             ArchiveType::Gzip => {
                 let mut archive = tar::Archive::new(flate2::read::GzDecoder::new(
