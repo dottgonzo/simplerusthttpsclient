@@ -107,6 +107,80 @@ impl HttpClient {
         Ok(response)
     }
 
+    pub async fn post_file_as_zip(
+        &self,
+        url: Url,
+        path: &Path,
+        multipart_file_name: Option<String>,
+        extra_headers: Option<HeaderMap>,
+    ) -> anyhow::Result<()> {
+        let tmp_dir = tempfile::tempdir()?;
+        let zip_file_name = String::from("test.zip");
+        let tmp_file_buff = tmp_dir.path().join(zip_file_name.clone());
+        let tmp_file_path = Path::new(&tmp_file_buff).to_owned();
+        let cloned_path = tmp_file_path.clone();
+        let to_be_zipped = path.to_owned();
+        tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
+            let mut zip = zip::ZipWriter::new(std::fs::File::create(tmp_file_path)?);
+            let options = zip::write::FileOptions::default()
+                .compression_method(zip::CompressionMethod::Stored)
+                .unix_permissions(0o755);
+            zip.start_file(zip_file_name, options)?;
+            zip.write_all(&std::fs::read(to_be_zipped)?)?;
+            zip.finish()?;
+            Ok(())
+        })
+        .await??;
+        self.post_file_path(
+            url,
+            cloned_path.as_path(),
+            multipart_file_name,
+            extra_headers,
+        )
+        .await
+    }
+
+    pub async fn post_folder_as_zip(
+        &self,
+        url: Url,
+        path: &Path,
+        multipart_file_name: Option<String>,
+        extra_headers: Option<HeaderMap>,
+    ) -> anyhow::Result<()> {
+        let tmp_dir = tempfile::tempdir()?;
+        let tmp_file_buff = tmp_dir.path().join("test.zip");
+        let tmp_file_path = Path::new(&tmp_file_buff).to_owned();
+        let cloned_path = tmp_file_path.clone();
+        let to_be_zipped = path.to_owned();
+        tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
+            let mut zip = zip::ZipWriter::new(std::fs::File::create(tmp_file_path)?);
+            let options = zip::write::FileOptions::default()
+                .compression_method(zip::CompressionMethod::Stored)
+                .unix_permissions(0o755);
+            for file in walkdir::WalkDir::new(to_be_zipped) {
+                let file = file?;
+                let path = file.path();
+                let name = path.strip_prefix(path)?.to_str().unwrap();
+                if path.is_file() {
+                    zip.start_file(name, options)?;
+                    zip.write_all(&std::fs::read(path)?)?;
+                } else if path.is_dir() {
+                    zip.add_directory(name, options)?;
+                }
+            }
+            zip.finish()?;
+            Ok(())
+        })
+        .await??;
+        self.post_file_path(
+            url,
+            cloned_path.as_path(),
+            multipart_file_name,
+            extra_headers,
+        )
+        .await
+    }
+
     pub async fn post_file_path(
         &self,
         url: Url,
