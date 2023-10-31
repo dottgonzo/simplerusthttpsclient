@@ -10,6 +10,7 @@ use std::io::Write;
 use tokio::io::AsyncWriteExt;
 use url::Url;
 
+#[derive(Debug, Clone)]
 pub enum ArchiveType {
     Zip,
     Tar,
