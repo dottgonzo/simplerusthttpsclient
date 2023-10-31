@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use std::{path::Path, sync::Arc};
+    use std::path::Path;
 
     use url::Url;
 
@@ -99,6 +99,39 @@ mod tests {
             None,
         );
 
+        let response = client
+            .get_archive_to_dir(
+                url::Url::parse(&url_get_string).unwrap(),
+                &crate::ArchiveType::Gzip,
+                storage_path,
+                None,
+            )
+            .await;
+
+        if response.is_err() {
+            println!("Error: {:?}", &response.err());
+        } else {
+            println!("Success");
+            assert!(response.is_ok());
+        }
+    }
+
+    #[tokio::test]
+    async fn spawn_get_archive_to_dir() {
+        let url_get_string =
+            String::from("https://crates.io/api/v1/crates/simplerusthttpsclient/0.0.1/download");
+
+        let storage_path = Path::new("/tmp");
+
+        let client = crate::HttpClient::new(
+            Url::parse(&url_get_string).unwrap(),
+            Some(crate::TlsConfig {
+                insecure: Some(true),
+                private_chain_bytes: None,
+            }),
+            None,
+        );
+
         let cloned_client = client.clone();
         tokio::spawn(async move {
             let a = cloned_client
@@ -113,8 +146,6 @@ mod tests {
             assert!(a.is_ok());
         });
 
-        loop {
-            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-        }
+        tokio::time::sleep(std::time::Duration::from_secs(10)).await;
     }
 }
