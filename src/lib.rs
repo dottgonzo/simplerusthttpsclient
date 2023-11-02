@@ -7,6 +7,7 @@ use reqwest::{header::HeaderMap, multipart, Client};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::io::Read;
 use std::io::Write;
+use tokio::io::AsyncWriteExt;
 use url::Url;
 
 #[derive(Debug, Clone)]
