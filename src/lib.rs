@@ -318,22 +318,8 @@ impl HttpClient {
                 let dir = dir.to_owned();
                 tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
                     let mut archive = zip::ZipArchive::new(std::io::Cursor::new(file_buffer))?;
-                    for i in 0..archive.len() {
-                        let mut file = archive.by_index(i)?;
-                        let outpath = dir.join(file.mangled_name());
+                    archive.extract(dir)?;
 
-                        if file.name().ends_with('/') {
-                            std::fs::create_dir_all(&outpath)?;
-                        } else {
-                            if let Some(parent) = outpath.parent() {
-                                std::fs::create_dir_all(parent)?;
-                            }
-                            let mut outfile = std::fs::File::create(&outpath)?;
-                            let mut buffer = Vec::new();
-                            file.read_to_end(&mut buffer)?;
-                            outfile.write_all(&buffer)?;
-                        }
-                    }
                     Ok(())
                 })
                 .await??;
@@ -342,22 +328,8 @@ impl HttpClient {
                 let dir = dir.to_owned();
                 tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
                     let mut archive = tar::Archive::new(std::io::Cursor::new(file_buffer));
-                    for entry in archive.entries()? {
-                        let mut file = entry?;
-                        let outpath = dir.join(file.path()?);
+                    archive.unpack(dir)?;
 
-                        if file.header().entry_type().is_dir() {
-                            std::fs::create_dir_all(&outpath)?;
-                        } else {
-                            if let Some(parent) = outpath.parent() {
-                                std::fs::create_dir_all(parent)?;
-                            }
-                            let mut outfile = std::fs::File::create(&outpath)?;
-                            let mut buffer = Vec::new();
-                            file.read_to_end(&mut buffer)?;
-                            outfile.write_all(&buffer)?;
-                        }
-                    }
                     Ok(())
                 })
                 .await??;
@@ -368,22 +340,7 @@ impl HttpClient {
                     let mut archive = tar::Archive::new(flate2::read::GzDecoder::new(
                         std::io::Cursor::new(file_buffer),
                     ));
-                    for entry in archive.entries()? {
-                        let mut file = entry?;
-                        let outpath = dir.join(file.path()?);
-
-                        if file.header().entry_type().is_dir() {
-                            std::fs::create_dir_all(&outpath)?;
-                        } else {
-                            if let Some(parent) = outpath.parent() {
-                                std::fs::create_dir_all(parent)?;
-                            }
-                            let mut outfile = std::fs::File::create(&outpath)?;
-                            let mut buffer = Vec::new();
-                            file.read_to_end(&mut buffer)?;
-                            outfile.write_all(&buffer)?;
-                        }
-                    }
+                    archive.unpack(dir)?;
                     Ok(())
                 })
                 .await??;
