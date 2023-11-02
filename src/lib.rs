@@ -31,9 +31,9 @@ pub struct OkJson {
 }
 
 #[derive(Clone, Debug)]
-pub struct TlsConfig<'a> {
+pub struct TlsConfig {
     pub insecure: Option<bool>,
-    pub private_chain_bytes: Option<&'a [u8]>,
+    pub private_chain_bytes: Option<Vec<u8>>,
 }
 
 #[derive(Clone, Debug)]
@@ -45,7 +45,7 @@ pub struct HttpClient {
 impl HttpClient {
     pub fn new(
         base_url: Url,
-        tls_config: Option<TlsConfig<'static>>,
+        tls_config: Option<TlsConfig>,
         default_headers: Option<HeaderMap>,
     ) -> Self {
         let mut builder = Client::builder();
@@ -60,7 +60,7 @@ impl HttpClient {
                     builder = builder.danger_accept_invalid_certs(true);
                 } else if let Some(private_chain_bytes) = tls_config.private_chain_bytes {
                     let reqwest_certificate =
-                        reqwest::Certificate::from_pem(private_chain_bytes).unwrap();
+                        reqwest::Certificate::from_pem(&private_chain_bytes).unwrap();
 
                     // print!("cert_chain: {:?}", cert_chain.as_slice());
 

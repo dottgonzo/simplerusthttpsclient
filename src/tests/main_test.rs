@@ -43,7 +43,7 @@ mod tests {
             Url::parse(&url_string).unwrap(),
             Some(crate::TlsConfig {
                 insecure: Some(false),
-                private_chain_bytes: Some(my_cert_bytes),
+                private_chain_bytes: Some(my_cert_bytes.to_vec()),
             }),
             None,
         );
