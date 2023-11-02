@@ -241,12 +241,12 @@ impl HttpClient {
         self.send_multipart_form(url, form, extra_headers).await
     }
 
-    pub async fn send_multipart_form<T: DeserializeOwned>(
+    pub async fn send_multipart_form(
         &self,
         url: Url,
         multipart_form: multipart::Form,
         extra_headers: Option<HeaderMap>,
-    ) -> anyhow::Result<T> {
+    ) -> anyhow::Result<()> {
         let mut request_builder = self.client.post(url);
 
         if let Some(headers) = extra_headers {
@@ -255,14 +255,16 @@ impl HttpClient {
             }
         }
 
-        let response = request_builder
-            .multipart(multipart_form)
-            .send()
-            .await?
-            .json::<T>()
-            .await?;
+        let response = request_builder.multipart(multipart_form).send().await?;
 
-        Ok(response)
+        if response.status().is_success() {
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("Error uploading file"))
+        }
+
+        // .json::<T>()
+        // .await?;
     }
 
     pub async fn get_file_buffer(
