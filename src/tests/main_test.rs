@@ -111,7 +111,6 @@ mod tests {
         if response.is_err() {
             println!("Error: {:?}", &response.err());
         } else {
-            println!("Success");
             assert!(response.is_ok());
         }
     }

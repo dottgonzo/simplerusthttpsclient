@@ -230,8 +230,6 @@ impl HttpClient {
 
         let multipart_file_name = multipart_file_name.unwrap();
 
-        println!("UPLOAD {} {}", url.as_str(), &name);
-
         let part = multipart::Part::bytes(bytes)
             .file_name(name.clone())
             .mime_str("application/octet-stream")?;
@@ -272,7 +270,6 @@ impl HttpClient {
         url: Url,
         extra_headers: Option<HeaderMap>,
     ) -> anyhow::Result<tokio_util::bytes::Bytes> {
-        // println!("GET {url}");
         let mut request_builder = self.client.get(url);
 
         if let Some(headers) = extra_headers {
@@ -295,7 +292,6 @@ impl HttpClient {
         path: &Path,
         extra_headers: Option<HeaderMap>,
     ) -> anyhow::Result<()> {
-        // println!("GET {url}");
         let file_buffer = self.get_file_buffer(url, extra_headers).await?;
         let mut file = tokio::fs::File::create(&path).await?;
 
