@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests;
 
+use std::path::PathBuf;
 use std::{fs::File, path::Path};
 
 use reqwest::{header::HeaderMap, multipart, Client};
@@ -269,7 +270,7 @@ impl HttpClient {
         &self,
         url: Url,
         extra_headers: Option<HeaderMap>,
-    ) -> anyhow::Result<tokio_util::bytes::Bytes> {
+    ) -> anyhow::Result<Option<tokio_util::bytes::Bytes>> {
         let mut request_builder = self.client.get(url);
 
         if let Some(headers) = extra_headers {
@@ -279,8 +280,12 @@ impl HttpClient {
         }
         let resp = request_builder.send().await?;
         if resp.status().is_success() {
-            let bytes = resp.bytes().await?;
-            Ok(bytes)
+            let mut answer: Option<tokio_util::bytes::Bytes> = None;
+            let bytes_answer = resp.bytes().await;
+            if let Ok(bytes_answer) = bytes_answer {
+                answer = Some(bytes_answer);
+            }
+            Ok(answer)
         } else {
             Err(anyhow::anyhow!("Error downloading file"))
         }
@@ -291,13 +296,16 @@ impl HttpClient {
         url: Url,
         path: &Path,
         extra_headers: Option<HeaderMap>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<Option<PathBuf>> {
         let file_buffer = self.get_file_buffer(url, extra_headers).await?;
-        let mut file = tokio::fs::File::create(&path).await?;
+        if file_buffer.is_some() {
+            let mut file = tokio::fs::File::create(&path).await?;
+            file.write_all(&file_buffer.unwrap()).await?;
 
-        file.write_all(&file_buffer).await?;
-
-        Ok(())
+            Ok(Some(path.to_path_buf()))
+        } else {
+            Ok(None)
+        }
     }
 
     pub async fn get_archive_to_dir(
@@ -306,43 +314,46 @@ impl HttpClient {
         archive_type: &ArchiveType,
         dir: &Path,
         extra_headers: Option<HeaderMap>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<Option<PathBuf>> {
         let file_buffer = self.get_file_buffer(url, extra_headers).await?;
+        if let Some(file_buffer) = file_buffer {
+            match archive_type {
+                ArchiveType::Zip => {
+                    let dir = dir.to_owned();
+                    tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
+                        let mut archive = zip::ZipArchive::new(std::io::Cursor::new(file_buffer))?;
+                        archive.extract(dir)?;
 
-        match archive_type {
-            ArchiveType::Zip => {
-                let dir = dir.to_owned();
-                tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
-                    let mut archive = zip::ZipArchive::new(std::io::Cursor::new(file_buffer))?;
-                    archive.extract(dir)?;
+                        Ok(())
+                    })
+                    .await??;
+                }
+                ArchiveType::Tar => {
+                    let dir = dir.to_owned();
+                    tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
+                        let mut archive = tar::Archive::new(std::io::Cursor::new(file_buffer));
+                        archive.unpack(dir)?;
 
-                    Ok(())
-                })
-                .await??;
+                        Ok(())
+                    })
+                    .await??;
+                }
+                ArchiveType::Gzip => {
+                    let dir = dir.to_owned();
+                    tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
+                        let mut archive = tar::Archive::new(flate2::read::GzDecoder::new(
+                            std::io::Cursor::new(file_buffer),
+                        ));
+                        archive.unpack(dir)?;
+                        Ok(())
+                    })
+                    .await??;
+                }
             }
-            ArchiveType::Tar => {
-                let dir = dir.to_owned();
-                tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
-                    let mut archive = tar::Archive::new(std::io::Cursor::new(file_buffer));
-                    archive.unpack(dir)?;
 
-                    Ok(())
-                })
-                .await??;
-            }
-            ArchiveType::Gzip => {
-                let dir = dir.to_owned();
-                tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
-                    let mut archive = tar::Archive::new(flate2::read::GzDecoder::new(
-                        std::io::Cursor::new(file_buffer),
-                    ));
-                    archive.unpack(dir)?;
-                    Ok(())
-                })
-                .await??;
-            }
+            Ok(Some(dir.to_path_buf()))
+        } else {
+            Ok(None)
         }
-
-        Ok(())
     }
 }
