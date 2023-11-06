@@ -283,7 +283,9 @@ impl HttpClient {
             let mut answer: Option<tokio_util::bytes::Bytes> = None;
             let bytes_answer = resp.bytes().await;
             if let Ok(bytes_answer) = bytes_answer {
-                answer = Some(bytes_answer);
+                if !bytes_answer.is_empty() {
+                    answer = Some(bytes_answer);
+                }
             }
             Ok(answer)
         } else {
