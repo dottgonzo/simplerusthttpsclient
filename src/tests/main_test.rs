@@ -1,22 +1,24 @@
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
 
     use url::Url;
 
     const TEST_URL: &str = "localhost:3000";
 
     #[tokio::test]
+    #[cfg(not(feature = "tls"))]
     async fn test_http() {
         let url_string = String::from("http://") + TEST_URL;
 
-        let client = crate::HttpClient::new(Url::parse(&url_string).unwrap(), None, None);
+        let client = crate::HttpClient::new(Url::parse(&url_string).unwrap(), None);
 
         let response: anyhow::Result<crate::OkJson> = client.get("/", None).await;
 
         assert!(response.is_ok());
     }
+
     #[tokio::test]
+    #[cfg(feature = "tls")]
     async fn test_https_insecure() {
         let url_string = String::from("https://") + TEST_URL;
 
@@ -34,6 +36,7 @@ mod tests {
         assert!(response.is_ok());
     }
     #[tokio::test]
+    #[cfg(feature = "tls")]
     async fn test_https_private_tls() {
         let url_string = String::from("https://") + TEST_URL;
 
@@ -54,6 +57,8 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "tls")]
+
     async fn test_send_buffer() {
         let url_string = String::from("https://") + TEST_URL;
 
@@ -84,11 +89,13 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "tls")]
+    #[cfg(feature = "async-fs")]
     async fn get_archive_to_dir() {
         let url_get_string =
             String::from("https://crates.io/api/v1/crates/simplerusthttpsclient/0.0.1/download");
 
-        let storage_path = Path::new("/tmp");
+        let storage_path = std::path::Path::new("/tmp");
 
         let client = crate::HttpClient::new(
             Url::parse(&url_get_string).unwrap(),
@@ -116,11 +123,13 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "tls")]
+    #[cfg(feature = "async-fs")]
     async fn spawn_get_archive_to_dir() {
         let url_get_string =
             String::from("https://crates.io/api/v1/crates/simplerusthttpsclient/0.0.1/download");
 
-        let storage_path = Path::new("/tmp");
+        let storage_path = std::path::Path::new("/tmp");
 
         let client = crate::HttpClient::new(
             Url::parse(&url_get_string).unwrap(),

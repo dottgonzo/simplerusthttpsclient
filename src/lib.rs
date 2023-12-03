@@ -8,6 +8,7 @@ use reqwest::{header::HeaderMap, multipart, Client};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::io::Read;
 use std::io::Write;
+#[cfg(feature = "async-fs")]
 use tokio::io::AsyncWriteExt;
 use url::Url;
 
@@ -44,6 +45,8 @@ pub struct HttpClient {
 }
 
 impl HttpClient {
+    #[cfg(feature = "tls")]
+
     pub fn new(
         base_url: Url,
         tls_config: Option<TlsConfig>,
@@ -68,6 +71,21 @@ impl HttpClient {
                     builder = builder.add_root_certificate(reqwest_certificate);
                 }
             }
+        }
+
+        let client = builder.build().unwrap();
+        Self { base_url, client }
+    }
+
+    #[cfg(not(feature = "tls"))]
+
+    pub fn new(base_url: Url, default_headers: Option<HeaderMap>) -> Self {
+        let mut builder = Client::builder();
+        if let Some(headers) = default_headers {
+            builder = builder.default_headers(headers);
+        }
+        if base_url.scheme() == "https" {
+            panic!("https is not supported in this build");
         }
 
         let client = builder.build().unwrap();
@@ -117,6 +135,8 @@ impl HttpClient {
         Ok(response)
     }
 
+    #[cfg(feature = "async-fs")]
+
     pub async fn post_file_as_zip(
         &self,
         url: Url,
@@ -149,6 +169,7 @@ impl HttpClient {
         )
         .await
     }
+    #[cfg(feature = "async-fs")]
 
     pub async fn post_folder_as_zip(
         &self,
@@ -292,6 +313,7 @@ impl HttpClient {
             Err(anyhow::anyhow!("Error downloading file"))
         }
     }
+    #[cfg(feature = "async-fs")]
 
     pub async fn get_file_to_path(
         &self,
@@ -309,7 +331,24 @@ impl HttpClient {
             Ok(None)
         }
     }
+    #[cfg(not(feature = "async-fs"))]
+    pub async fn get_file_to_path(
+        &self,
+        url: Url,
+        path: &Path,
+        extra_headers: Option<HeaderMap>,
+    ) -> anyhow::Result<Option<PathBuf>> {
+        let file_buffer = self.get_file_buffer(url, extra_headers).await?;
+        if file_buffer.is_some() {
+            let mut file = File::create(path)?;
+            file.write_all(file_buffer.unwrap().as_ref())?;
 
+            Ok(Some(path.to_path_buf()))
+        } else {
+            Ok(None)
+        }
+    }
+    #[cfg(feature = "async-fs")]
     pub async fn get_archive_to_dir(
         &self,
         url: Url,
