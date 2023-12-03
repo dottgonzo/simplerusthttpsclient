@@ -31,7 +31,7 @@ impl ArchiveType {
 pub struct OkJson {
     pub ok: bool,
 }
-
+#[cfg(feature = "tls")]
 #[derive(Clone, Debug)]
 pub struct TlsConfig {
     pub insecure: Option<bool>,
