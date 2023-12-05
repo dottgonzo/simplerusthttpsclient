@@ -9,6 +9,10 @@ license = "Apache-2.0"
 documentation = "https://docs.rs/simplerusthttpsclient"
 repository = "https://github.com/dottgonzo/simplerusthttpsclient"
 
+exclude = [
+    "src/tests/nodeserver",
+]
+
 [features]
 tls = ["dep:rustls","dep:rustls-pemfile","reqwest/rustls-tls"]
 async-fs = ["tokio/fs"]
