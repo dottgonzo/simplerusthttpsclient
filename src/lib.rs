@@ -134,7 +134,68 @@ impl HttpClient {
         let response = resp.json::<T>().await?;
         Ok(response)
     }
+    pub async fn patch<T: DeserializeOwned, U: Serialize>(
+        &self,
+        endpoint: &str,
+        body: &U,
+        extra_headers: Option<HeaderMap>,
+    ) -> anyhow::Result<T> {
+        let url = self.base_url.join(endpoint)?;
 
+        let mut request_builder = self.client.patch(url).json(body);
+
+        if let Some(headers) = extra_headers {
+            for (name, value) in headers.iter() {
+                request_builder = request_builder.header(name, value);
+            }
+        }
+
+        let resp = request_builder.send().await?;
+
+        let response = resp.json::<T>().await?;
+        Ok(response)
+    }
+    pub async fn put<T: DeserializeOwned, U: Serialize>(
+        &self,
+        endpoint: &str,
+        body: &U,
+        extra_headers: Option<HeaderMap>,
+    ) -> anyhow::Result<T> {
+        let url = self.base_url.join(endpoint)?;
+
+        let mut request_builder = self.client.put(url).json(body);
+
+        if let Some(headers) = extra_headers {
+            for (name, value) in headers.iter() {
+                request_builder = request_builder.header(name, value);
+            }
+        }
+
+        let resp = request_builder.send().await?;
+
+        let response = resp.json::<T>().await?;
+        Ok(response)
+    }
+    pub async fn delete<T: DeserializeOwned, U: Serialize>(
+        &self,
+        endpoint: &str,
+        extra_headers: Option<HeaderMap>,
+    ) -> anyhow::Result<T> {
+        let url = self.base_url.join(endpoint)?;
+
+        let mut request_builder = self.client.delete(url);
+
+        if let Some(headers) = extra_headers {
+            for (name, value) in headers.iter() {
+                request_builder = request_builder.header(name, value);
+            }
+        }
+
+        let resp = request_builder.send().await?;
+
+        let response = resp.json::<T>().await?;
+        Ok(response)
+    }
     #[cfg(feature = "async-fs")]
 
     pub async fn post_file_as_zip(
