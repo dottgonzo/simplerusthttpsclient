@@ -176,7 +176,7 @@ impl HttpClient {
         let response = resp.json::<T>().await?;
         Ok(response)
     }
-    pub async fn delete<T: DeserializeOwned, U: Serialize>(
+    pub async fn delete<T: DeserializeOwned>(
         &self,
         endpoint: &str,
         extra_headers: Option<HeaderMap>,
