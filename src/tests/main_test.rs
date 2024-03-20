@@ -31,7 +31,7 @@ mod tests {
             None,
         );
 
-        let response: anyhow::Result<crate::OkJson> = client.get("/", None).await;
+        let response: anyhow::Result<crate::OkJson> = client.get_json("/", None).await;
 
         assert!(response.is_ok());
     }
@@ -51,7 +51,7 @@ mod tests {
             None,
         );
 
-        let response: anyhow::Result<crate::OkJson> = client.get("/", None).await;
+        let response: anyhow::Result<crate::OkJson> = client.get_json("/", None).await;
 
         assert!(response.is_ok());
     }

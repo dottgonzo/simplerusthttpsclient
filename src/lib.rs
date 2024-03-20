@@ -4,6 +4,7 @@ mod tests;
 use std::path::PathBuf;
 use std::{fs::File, path::Path};
 
+use reqwest::Response;
 use reqwest::{header::HeaderMap, multipart, Client};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::io::Read;
@@ -92,11 +93,11 @@ impl HttpClient {
         Self { base_url, client }
     }
 
-    pub async fn get<T: DeserializeOwned>(
+    pub async fn get(
         &self,
         endpoint: &str,
         extra_headers: Option<HeaderMap>,
-    ) -> anyhow::Result<T> {
+    ) -> anyhow::Result<Response> {
         let url = self.base_url.join(endpoint)?;
 
         let mut request_builder = self.client.get(url);
@@ -109,16 +110,25 @@ impl HttpClient {
 
         let resp = request_builder.send().await?;
 
+        Ok(resp)
+    }
+
+    pub async fn get_json<T: DeserializeOwned>(
+        &self,
+        endpoint: &str,
+        extra_headers: Option<HeaderMap>,
+    ) -> anyhow::Result<T> {
+        let resp = self.get(endpoint, extra_headers).await?;
+
         let response = resp.json::<T>().await?;
         Ok(response)
     }
-
-    pub async fn post<T: DeserializeOwned, U: Serialize>(
+    pub async fn post<U: Serialize>(
         &self,
         endpoint: &str,
         body: &U,
         extra_headers: Option<HeaderMap>,
-    ) -> anyhow::Result<T> {
+    ) -> anyhow::Result<Response> {
         let url = self.base_url.join(endpoint)?;
 
         let mut request_builder = self.client.post(url).json(body);
@@ -131,15 +141,26 @@ impl HttpClient {
 
         let resp = request_builder.send().await?;
 
-        let response = resp.json::<T>().await?;
-        Ok(response)
+        Ok(resp)
     }
-    pub async fn patch<T: DeserializeOwned, U: Serialize>(
+    pub async fn post_json<T: DeserializeOwned, U: Serialize>(
         &self,
         endpoint: &str,
         body: &U,
         extra_headers: Option<HeaderMap>,
     ) -> anyhow::Result<T> {
+        let resp = self.post(endpoint, body, extra_headers).await?;
+
+        let response = resp.json::<T>().await?;
+        Ok(response)
+    }
+
+    pub async fn patch<U: Serialize>(
+        &self,
+        endpoint: &str,
+        body: &U,
+        extra_headers: Option<HeaderMap>,
+    ) -> anyhow::Result<Response> {
         let url = self.base_url.join(endpoint)?;
 
         let mut request_builder = self.client.patch(url).json(body);
@@ -152,15 +173,27 @@ impl HttpClient {
 
         let resp = request_builder.send().await?;
 
-        let response = resp.json::<T>().await?;
-        Ok(response)
+        Ok(resp)
     }
-    pub async fn put<T: DeserializeOwned, U: Serialize>(
+
+    pub async fn patch_json<T: DeserializeOwned, U: Serialize>(
         &self,
         endpoint: &str,
         body: &U,
         extra_headers: Option<HeaderMap>,
     ) -> anyhow::Result<T> {
+        let resp = self.patch(endpoint, body, extra_headers).await?;
+
+        let response = resp.json::<T>().await?;
+        Ok(response)
+    }
+
+    pub async fn put<U: Serialize>(
+        &self,
+        endpoint: &str,
+        body: &U,
+        extra_headers: Option<HeaderMap>,
+    ) -> anyhow::Result<Response> {
         let url = self.base_url.join(endpoint)?;
 
         let mut request_builder = self.client.put(url).json(body);
@@ -173,14 +206,26 @@ impl HttpClient {
 
         let resp = request_builder.send().await?;
 
+        Ok(resp)
+    }
+
+    pub async fn put_json<T: DeserializeOwned, U: Serialize>(
+        &self,
+        endpoint: &str,
+        body: &U,
+        extra_headers: Option<HeaderMap>,
+    ) -> anyhow::Result<T> {
+        let resp = self.put(endpoint, body, extra_headers).await?;
+
         let response = resp.json::<T>().await?;
         Ok(response)
     }
-    pub async fn delete<T: DeserializeOwned>(
+
+    pub async fn delete(
         &self,
         endpoint: &str,
         extra_headers: Option<HeaderMap>,
-    ) -> anyhow::Result<T> {
+    ) -> anyhow::Result<Response> {
         let url = self.base_url.join(endpoint)?;
 
         let mut request_builder = self.client.delete(url);
@@ -192,6 +237,16 @@ impl HttpClient {
         }
 
         let resp = request_builder.send().await?;
+
+        Ok(resp)
+    }
+
+    pub async fn delete_json<T: DeserializeOwned>(
+        &self,
+        endpoint: &str,
+        extra_headers: Option<HeaderMap>,
+    ) -> anyhow::Result<T> {
+        let resp = self.delete(endpoint, extra_headers).await?;
 
         let response = resp.json::<T>().await?;
         Ok(response)
