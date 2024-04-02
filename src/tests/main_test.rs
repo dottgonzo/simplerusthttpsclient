@@ -37,6 +37,24 @@ mod tests {
     }
     #[tokio::test]
     #[cfg(feature = "tls")]
+    async fn test_https_insecure_fail() {
+        let url_string = String::from("https://") + TEST_URL;
+
+        let client = crate::HttpClient::new(
+            Url::parse(&url_string).unwrap(),
+            Some(crate::TlsConfig {
+                insecure: None,
+                private_chain_bytes: None,
+            }),
+            None,
+        );
+
+        let response: anyhow::Result<crate::OkJson> = client.get_json("/", None).await;
+
+        assert!(response.is_err());
+    }
+    #[tokio::test]
+    #[cfg(feature = "tls")]
     async fn test_https_private_tls() {
         let url_string = String::from("https://") + TEST_URL;
 
