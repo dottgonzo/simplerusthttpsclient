@@ -23,7 +23,7 @@ default = ["tls","async-fs"]
 [dependencies]
 reqwest = { version = "0.12.2", default-features = false, features = ["json","multipart"] }
 url = { version = "2.4.1", default-features = false }
-tokio = { version = "1.33.0", default-features = false, features = ["macros","io-util"] }
+tokio = { version = "1.37.0", default-features = false, features = ["macros","io-util"] }
 rustls = { version = "0.23.4", default-features = false, features = [], optional = true }
 rustls-pemfile = { version = "1.0.3", default-features = false, optional = true }
 anyhow = { version = "1.0.75" }
