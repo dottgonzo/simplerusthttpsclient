@@ -47,7 +47,6 @@ pub struct HttpClient {
 
 impl HttpClient {
     #[cfg(feature = "tls")]
-
     pub fn new(
         base_url: Url,
         tls_config: Option<TlsConfig>,
@@ -251,8 +250,8 @@ impl HttpClient {
         let response = resp.json::<T>().await?;
         Ok(response)
     }
-    #[cfg(feature = "async-fs")]
 
+    #[cfg(feature = "async-fs")]
     pub async fn post_file_as_zip(
         &self,
         url: Url,
@@ -285,8 +284,8 @@ impl HttpClient {
         )
         .await
     }
-    #[cfg(feature = "async-fs")]
 
+    #[cfg(feature = "async-fs")]
     pub async fn post_folder_as_zip(
         &self,
         url: Url,
@@ -429,8 +428,8 @@ impl HttpClient {
             Err(anyhow::anyhow!("Error downloading file"))
         }
     }
-    #[cfg(feature = "async-fs")]
 
+    #[cfg(feature = "async-fs")]
     pub async fn get_file_to_path(
         &self,
         url: Url,
