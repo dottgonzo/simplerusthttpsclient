@@ -1,15 +1,14 @@
 #[cfg(test)]
 mod tests;
 
-use std::path::PathBuf;
-use std::{fs::File, path::Path};
-
 use reqwest::Response;
 use reqwest::{header::HeaderMap, multipart, Client};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::io::Read;
 use std::io::Write;
-#[cfg(feature = "async-fs")]
+use std::path::PathBuf;
+use std::{fs::File, path::Path};
+#[cfg(all(feature = "async-fs", not(target_arch = "wasm32")))]
 use tokio::io::AsyncWriteExt;
 use url::Url;
 
@@ -32,7 +31,7 @@ impl ArchiveType {
 pub struct OkJson {
     pub ok: bool,
 }
-#[cfg(feature = "tls")]
+#[cfg(all(feature = "tls", not(target_arch = "wasm32")))]
 #[derive(Clone, Debug)]
 pub struct TlsConfig {
     pub insecure: Option<bool>,
@@ -46,7 +45,7 @@ pub struct HttpClient {
 }
 
 impl HttpClient {
-    #[cfg(feature = "tls")]
+    #[cfg(all(feature = "tls", not(target_arch = "wasm32")))]
     pub fn new(
         base_url: Url,
         tls_config: Option<TlsConfig>,
@@ -77,8 +76,7 @@ impl HttpClient {
         Self { base_url, client }
     }
 
-    #[cfg(not(feature = "tls"))]
-
+    #[cfg(all(not(feature = "tls"), not(target_arch = "wasm32")))]
     pub fn new(base_url: Url, default_headers: Option<HeaderMap>) -> Self {
         let mut builder = Client::builder();
         if let Some(headers) = default_headers {
@@ -88,6 +86,16 @@ impl HttpClient {
             panic!("https is not supported in this build");
         }
 
+        let client = builder.build().unwrap();
+        Self { base_url, client }
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub fn new(base_url: Url, default_headers: Option<HeaderMap>) -> Self {
+        let mut builder = Client::builder();
+        if let Some(headers) = default_headers {
+            builder = builder.default_headers(headers);
+        }
         let client = builder.build().unwrap();
         Self { base_url, client }
     }
@@ -251,7 +259,7 @@ impl HttpClient {
         Ok(response)
     }
 
-    #[cfg(feature = "async-fs")]
+    #[cfg(all(feature = "async-fs", not(target_arch = "wasm32")))]
     pub async fn post_file_as_zip(
         &self,
         url: Url,
@@ -285,7 +293,7 @@ impl HttpClient {
         .await
     }
 
-    #[cfg(feature = "async-fs")]
+    #[cfg(all(feature = "async-fs", not(target_arch = "wasm32")))]
     pub async fn post_folder_as_zip(
         &self,
         url: Url,
@@ -327,6 +335,7 @@ impl HttpClient {
         .await
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub async fn post_file_path(
         &self,
         url: Url,
@@ -429,7 +438,7 @@ impl HttpClient {
         }
     }
 
-    #[cfg(feature = "async-fs")]
+    #[cfg(all(feature = "async-fs", not(target_arch = "wasm32")))]
     pub async fn get_file_to_path(
         &self,
         url: Url,
@@ -463,7 +472,7 @@ impl HttpClient {
             Ok(None)
         }
     }
-    #[cfg(feature = "async-fs")]
+    #[cfg(all(feature = "async-fs", not(target_arch = "wasm32")))]
     pub async fn get_archive_to_dir(
         &self,
         url: Url,
